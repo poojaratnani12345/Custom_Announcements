@@ -227,7 +227,13 @@
         text-align: center;
         box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.1);
     }
- 
+    .emoji.selected {
+    background-color: #1d6cc0;
+    border-radius: 4px;
+    padding: 2px 6px;
+    color: white;
+}
+
 </style>
  
 <head>
@@ -251,33 +257,21 @@
     <div class="content">
         <h3>Posts</h3>
         {% if posts %}
-            {% for post in posts %}
-                <div class="post">
-                    <h4>{{ post.title }}</h4>
-                    <p>{{ post.content }}</p>
-                    <p>This post was created by <span style="display: inline;">{{ post.created_by }}</span> on <span style="display: inline;">{{ post.creation }}</span></p>
+        {% for post in posts %}
+            <div class="post" data-post-id="{{ post.name }}">
+                
+                <h4>{{ post.subject }}</h4>
+                <p>This post was sent by <strong>{{ post.created_by or post.owner }}</strong> on <strong>{{ post.creation.strftime('%d %b %Y, %H:%M') }}</strong></p>
 
-                    
-                    <!-- Show Yes/No poll options if post is a poll -->
-                    {% if post.is_poll %}
-                        <div class="poll-options">
-                            <label>
-                                <input type="radio" id="yes_{{ post.name }}" name="poll_{{ post.name }}" value="YES"> Yes -
-                            </label>
-                            <span id="yes_count_{{ post.name|replace(' ', '_')|replace('-', '')|replace("'", '') }}">0</span><br><br>
- 
-                            <label>
-                                <input type="radio" id="no_{{ post.name }}" name="poll_{{ post.name }}" value="NO"> No -
-                            </label>
-                            <span id="no_count_{{ post.name|replace(' ', '_')|replace('-', '')|replace("'", '') }}">0</span>
- 
-                            <br><br><button onclick="submitPoll('{{ post.name | replace("'", "\\'") | replace('"', '&quot;') }}')">Vote</button>
-                        </div>
-                    {% endif %}
- 
-                        
-                    
+               <p>{{ post.description }}</p>
+                <div class="emoji-container">
+                    <span class="emoji" data-emoji="👍">👍</span>
+                    <span class="emoji" data-emoji="❤️">❤️</span>
+                    <span class="emoji" data-emoji="😂">😂</span>
+                    <span class="emoji" data-emoji="😮">😮</span>
+                    <span class="emoji" data-emoji="😢">😢</span>
                 </div>
+            </div>
             {% endfor %}
         {% else %}
             <p>No posts available in this channel.</p>
@@ -290,16 +284,67 @@
 <div id="pagination" class="pagination-container">
     <!-- Pagination buttons will be dynamically generated here -->
 </div>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+ <script>
+
+function getCSRFToken() {
+    let csrfMeta = document.querySelector('meta[name="csrf-token"]');
+    if (csrfMeta) {
+        return csrfMeta.content;
+    }
+    return "";
+}
  
- 
- 
-<script>
-    console.log("Discussion channel page loaded.");
- 
-    
 
 
-    document.addEventListener("DOMContentLoaded", function () {
+document.addEventListener("DOMContentLoaded", function () {
+        let postsPerPage = 5;
+        let currentPage = 1;
+        let posts = Array.from(document.querySelectorAll(".post"));
+        let totalPages = Math.ceil(posts.length / postsPerPage);
+
+        function showPage(page) {
+            let start = (page - 1) * postsPerPage;
+            let end = start + postsPerPage;
+            posts.forEach((post, index) => {
+                post.style.display = (index >= start && index < end) ? "block" : "none";
+            });
+            updatePaginationButtons();
+        }
+
+        function updatePaginationButtons() {
+            document.getElementById("pagination").innerHTML = `
+                <button class="page-btn" id="prev-page" ${currentPage === 1 ? "disabled" : ""}>Previous</button>
+                <span> Page ${currentPage} of ${totalPages} </span>
+                <button class="page-btn" id="next-page" ${currentPage === totalPages ? "disabled" : ""}>Next</button>
+            `;
+
+            document.getElementById("prev-page").addEventListener("click", function () {
+                if (currentPage > 1) {
+                    currentPage--;
+                    showPage(currentPage);
+                }
+            });
+            document.getElementById("next-page").addEventListener("click", function () {
+                if (currentPage < totalPages) {
+                    currentPage++;
+                    showPage(currentPage);
+                }
+            });
+        }
+
+        if (posts.length > 0) {
+            showPage(currentPage);
+        }
+    });
+
+
+ document.addEventListener("DOMContentLoaded", function () {
+    let csrfToken = getCSRFToken();
+    console.log("CSRF Token:", csrfToken);
+
         fetch("/api/method/sarvadhi_custom.www.discussion-channels.channel.get_user_channels")
         .then(response => response.json())
         .then(data => {
@@ -322,218 +367,80 @@
 
 
 
-
-
-    document.addEventListener("DOMContentLoaded", function() {
-    let postsPerPage = 2;  // Number of posts per page
-    let currentPage = localStorage.getItem("currentPage") ? parseInt(localStorage.getItem("currentPage")) : 1; // Get last page from localStorage
-
-    let postContainer = document.querySelector(".content");
-    let postsData = Array.from(document.querySelectorAll(".post"));  // Get all posts
-    let paginationContainer = document.getElementById("pagination");
-
-    function displayPosts(page) {
-        postContainer.innerHTML = "<h3>Posts</h3>"; // Clear previous posts
-        let totalPosts = postsData.length;
-
-        // ✅ If postsPerPage is greater than or equal to total posts, show all posts on page 1
-        if (postsPerPage >= totalPosts) {
-            postsData.forEach(post => postContainer.appendChild(post)); 
-            paginationContainer.innerHTML = ""; // Hide pagination buttons
-            return;  // Stop further execution
-        }
-
-        let start = (page - 1) * postsPerPage;
-        let end = start + postsPerPage;
-        let paginatedPosts = postsData.slice(start, end); // Get posts for the selected page
-
-        if (paginatedPosts.length === 0) {
-            postContainer.innerHTML += "<p>No posts available.</p>";
-        } else {
-            paginatedPosts.forEach(post => postContainer.appendChild(post)); // Append filtered posts
-        }
-
-        localStorage.setItem("currentPage", page); // Store selected page in localStorage
-        createPaginationButtons();
-    }
-
-
-    function createPaginationButtons() {
-        let totalPages = Math.ceil(postsData.length / postsPerPage);
-        paginationContainer.innerHTML = ""; // Clear previous buttons
-
-        if (totalPages > 1) {
-            let prevButton = document.createElement("button");
-            prevButton.innerText = "Previous";
-            prevButton.className = "page-btn";
-            prevButton.disabled = currentPage === 1;
-            prevButton.onclick = function() {
-                if (currentPage > 1) {
-                    localStorage.setItem("currentPage", currentPage - 1);
-                    location.reload(); // Reload the page
-                }
-            };
-            paginationContainer.appendChild(prevButton);
-
-            for (let i = 1; i <= totalPages; i++) {
-                let btn = document.createElement("button");
-                btn.innerText = i;
-                btn.className = "page-btn";
-                btn.style.margin = "5px";
-                btn.style.padding = "8px 12px";
-                btn.style.cursor = "pointer";
-                btn.style.border = "1px solid #1d3557";
-                btn.style.borderRadius = "5px";
-                btn.style.background = i === currentPage ? "#1d3557" : "#ffffff";
-                btn.style.color = i === currentPage ? "#ffffff" : "#1d3557";
-                
-                btn.onclick = function() {
-                    localStorage.setItem("currentPage", i);
-                    location.reload(); // Reload the page when clicked
-                };
-
-                paginationContainer.appendChild(btn);
-            }
-
-            let nextButton = document.createElement("button");
-            nextButton.innerText = "Next";
-            nextButton.className = "page-btn";
-            nextButton.disabled = currentPage === totalPages;
-            nextButton.onclick = function() {
-                if (currentPage < totalPages) {
-                    localStorage.setItem("currentPage", currentPage + 1);
-                    location.reload(); // Reload the page
-                }
-            };
-            paginationContainer.appendChild(nextButton);
-        }
-    }
-
-    displayPosts(currentPage);
-});
-
- 
-function sanitizePostName(postName) {
-    return postName.replace(/\s+/g, "_").replace(/[-']/g, "");
-}
-function getCSRFToken() {
-    let csrfMeta = document.querySelector('meta[name="csrf-token"]');
-    if (csrfMeta) {
-        return csrfMeta.content;
-    }
-    return "";
-}
- 
-function submitPoll(postName) {
-    let sanitizedPostName = sanitizePostName(postName);
- 
-    let csrfToken = getCSRFToken();
-    console.log("CSRF Token:", csrfToken);
-    console.log("Submitting poll for post:", postName);
- 
-    // Get selected radio button for the correct post
-    let selectedOption = document.querySelector(`input[name="poll_${postName}"]:checked`);
-    console.log("Selected Option:", selectedOption);
-    if (!selectedOption) {
-        console.warn("No option selected!");
-        alert("Please select an option before voting.");
-        return;
-    }
- 
-    let vote = selectedOption.value;  
-    console.log("Selected Vote:", vote);
- 
-    if (!csrfToken) {
-        alert("CSRF token not found! Login again or refresh the page.");
-        return;
-    }
- 
-    fetch('/api/method/sarvadhi_custom.api.channel_api.submit_voting', {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/x-www-form-urlencoded",
-            "X-Frappe-CSRF-Token": csrfToken  
-        },
-        body: `post_name=${postName}&vote=${vote}`
-    })
-    .then(response => response.json())
-    .then(data => {
-        console.log("Full API Response:", data);
- 
-        if (data.success) {
-            document.getElementById(`yes_count_${sanitizedPostName}`).innerText = data.yes_count;
-            document.getElementById(`no_count_${sanitizedPostName}`).innerText = data.no_count;
-            alert(`You voted: ${vote}`);
-        } else {
-            alert("Successfully submit vote.");
-            location.reload()
-        }
-    })
-    .catch(error => {
-        console.error("Error submitting vote:", error);
-        alert("Failed to submit vote. Please try again.");
-    });
-}
- 
- 
-
-
-
-
-
- 
-function fetchVoteCounts(postName) {
-    let sanitizedPostName = sanitizePostName(postName);
-    console.log("Sanitized Post Name:", sanitizedPostName);
-    console.log("Fetching vote counts for post:", postName);
+    $(document).ready(function () {
+            // Load previous reactions when page loads
+            let csrfToken = getCSRFToken();
+        console.log("CSRF Token:", csrfToken);
     
-    fetch(`/api/method/sarvadhi_custom.api.channel_api.get_vote_counts?post_name=${postName}`)
-    .then(response => response.json())
-    .then(data => {
-        console.log("API Response:", data);
- 
-        if (!data.message) {
-            console.error("Invalid response format:", data);
-            return;
-        }
- 
-        let yesCount = data.message.yes_count ?? "0";  
-        let noCount = data.message.no_count ?? "0";    
-        console.log("Vote Counts:", yesCount, noCount);
-        // Dynamically update only the relevant post
-        let yesCountElem = document.querySelector(`#yes_count_${sanitizedPostName}`);
-        let noCountElem = document.querySelector(`#no_count_${sanitizedPostName}`);
-        console.log("Yes Count Element:", yesCountElem);
-        console.log("No Count Element:", noCountElem);
- 
-        if (yesCountElem) {
-            yesCountElem.innerText = yesCount;
-        } else {
-            console.error(`Element not found: #yes_count_${sanitizedPostName}`);
-        }
- 
-        if (noCountElem) {
-            noCountElem.innerText = noCount;
-        } else {
-            console.error(`Element not found: #no_count_${sanitizedPostName}`);
-        }
-    })
-    .catch(error => console.error("Error fetching vote counts:", error));
-}
- 
- 
 
- 
-let postNamesDiv = document.getElementById("post-names");
-if (postNamesDiv) {
-    let postNames = postNamesDiv.getAttribute("data-posts").split(",");
-    postNames.forEach(postName => {
-        fetchVoteCounts(postName.trim());
-    });
-}
- 
- 
-</script>
- 
- 
- 
+            $(".post").each(function () {
+                var postId = $(this).data("post-id");
+                fetchUserReaction(postId, $(this));
+            });
+
+
+            $(".emoji").click(function () {
+                var emoji = $(this).data("emoji");
+                var postId = $(this).closest(".post").data("post-id");
+                var selected = $(this).hasClass("selected");
+
+                $(this).siblings().removeClass("selected");
+                if (selected) {
+                    $(this).removeClass("selected");
+                    updateReaction(postId, ""); // Remove reaction
+                } else {
+                    $(this).addClass("selected");
+                    updateReaction(postId, emoji);
+                }
+            });
+
+            // function updateReaction(postId, emoji) {
+            //     $.post("/api/method/sarvadhi_custom.api.reactions.update_reaction", {
+            //         post_id: postId,
+            //         emoji: emoji
+            //     }, function (response) {
+            //         console.log("Reaction updated", response);
+            //     });
+            // }
+            function updateReaction(postId, emoji) {
+                let csrfToken = getCSRFToken();
+                console.log("CSRF Token:", csrfToken);
+                console.log(postId)
+
+                $.ajax({
+                    url: "/api/method/sarvadhi_custom.api.reactions.update_reaction",
+                    type: "POST",
+                    headers: {
+                        "X-Frappe-CSRF-Token": csrfToken , // Ensure CSRF token is included
+                        "Content-Type": "application/json"
+
+                    },
+                    data: JSON.stringify({ post_id: postId, emoji: emoji }),  // Ensure data is sent correctly
+                    success: function(response) {
+                        console.log("Reaction updated successfully", response);
+                    },
+                    error: function(xhr) {
+                        console.error("Failed to update reaction", xhr.responseText);
+                    }
+                });
+
+        }
+
+
+            function fetchUserReaction(postId, cardElement) {
+
+                const csrfToken = $('meta[name="csrf-token"]').attr('content');
+                console.log("CSRF Token:", csrfToken);
+
+                $.get("/api/method/sarvadhi_custom.api.reactions.get_user_reaction", {
+                    post_id: postId
+                }, function (response) {
+                    if (response.message && response.message.reaction) {
+                        var emoji = response.message.reaction;
+                        cardElement.find(`.emoji[data-emoji="${emoji}"]`).addClass("selected");
+                    }
+                });
+            }
+        });
+
+ </script>

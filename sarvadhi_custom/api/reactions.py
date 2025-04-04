@@ -1,7 +1,18 @@
 import frappe
 
-@frappe.whitelist()
-def update_reaction(post_id, emoji):
+@frappe.whitelist(allow_guest=True)
+def update_reaction(post_id=None, emoji=None):
+    data = frappe.form_dict  # Capture all request data
+    
+    frappe.logger().info(f"Received data: {data}")  # Log incoming data
+
+    post_id = data.get("post_id")
+    print("post_id:",post_id)
+    emoji = data.get("emoji")
+    print("emoji:",emoji)
+
+    if not post_id:
+        frappe.throw("Post ID is required")
     user = frappe.session.user  # Get the logged-in user
     
     # Check if the user has already reacted

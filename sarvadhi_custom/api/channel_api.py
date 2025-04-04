@@ -103,3 +103,31 @@ def get_vote_counts(post_name):
 #         reaction_data[reaction["emoji"]] = reaction["count"]
 
 #     return {"success": True, "reactions": reaction_data}
+
+
+
+
+
+@frappe.whitelist(allow_guest=True)
+def get_users_by_role(roles):
+    if isinstance(roles, str):
+        roles = frappe.parse_json(roles)  # Convert JSON string to list
+
+    print("Fetching users with roles:", roles)
+
+    user_links = frappe.get_all(
+        "Has Role",
+        filters={"role": ["in", roles]},
+        fields=["parent"]
+    )
+
+    user_ids = list(set(user["parent"] for user in user_links))  # Remove duplicates
+
+    users = frappe.get_all(
+        "User",
+        filters={"name": ["in", user_ids]},
+        fields=["name", "username"]
+    )
+
+    print("Users fetched:", users)
+    return users

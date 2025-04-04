@@ -1,43 +1,29 @@
 {
  "actions": [],
  "allow_rename": 1,
- "creation": "2025-04-03 09:27:34.644640",
+ "creation": "2025-04-04 11:04:32.258656",
  "doctype": "DocType",
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
-  "user",
-  "imogi",
-  "count"
+  "role"
  ],
  "fields": [
   {
-   "fieldname": "user",
+   "fieldname": "role",
    "fieldtype": "Link",
    "in_list_view": 1,
-   "label": "user",
-   "options": "User"
-  },
-  {
-   "fieldname": "imogi",
-   "fieldtype": "Data",
-   "in_list_view": 1,
-   "label": "imogi"
-  },
-  {
-   "fieldname": "count",
-   "fieldtype": "Int",
-   "in_list_view": 1,
-   "label": "Count"
+   "label": "Role",
+   "options": "Role"
   }
  ],
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-04-03 09:29:10.749153",
+ "modified": "2025-04-04 11:05:09.238517",
  "modified_by": "Administrator",
  "module": "sarvadhi_custom",
- "name": "Reaction",
+ "name": "Members Role",
  "owner": "Administrator",
  "permissions": [],
  "sort_field": "modified",

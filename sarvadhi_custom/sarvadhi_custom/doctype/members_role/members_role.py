@@ -5,5 +5,5 @@
 from frappe.model.document import Document
 
 
-class TypesOfAnnouncements(Document):
+class MembersRole(Document):
 	pass

@@ -8,6 +8,7 @@
  "field_order": [
   "channel_name",
   "description",
+  "role",
   "members"
  ],
  "fields": [
@@ -26,11 +27,17 @@
    "fieldtype": "Table",
    "label": "Members",
    "options": "Members"
+  },
+  {
+   "fieldname": "role",
+   "fieldtype": "Table MultiSelect",
+   "label": "Role",
+   "options": "Members Role"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-04-03 12:50:20.951214",
+ "modified": "2025-04-04 11:11:15.092907",
  "modified_by": "Administrator",
  "module": "sarvadhi_custom",
  "name": "Discussion Channel",
