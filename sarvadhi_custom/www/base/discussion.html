@@ -1,0 +1,588 @@
+{% extends "templates/web.html" %}
+
+{% block page_content %}
+<div class="container-fluid">
+    <div class="row">
+        <!-- Sidebar -->
+        <div class="col-md-3 bg-dark text-white p-3 sidebar" style="min-height: 100vh;">
+            <h5 class="text-white">Discussion Channels</h5>
+            <div id="channel-list">
+                <!-- Channels will be dynamically loaded here -->
+            </div>
+        </div>
+
+        <!-- Main content -->
+        <div class="col-md-9 bg-light p-4 main-content">
+            <div>
+
+                <h5>Posts</h5>
+                <div id="main-container">
+                    <div id="post-list" style="height: 10px;">
+                        <!-- Posts will be dynamically loaded here -->
+                    </div>
+                </div>
+                <div id="pagination-controls" class="d-flex justify-content-center mt-4 ">
+                    <!-- Pagination buttons will be dynamically added here -->
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+    {% endblock %}
+
+    {% block script %}
+    <script>
+
+        function fetchChannels() {
+            frappe.call({
+                method: "sarvadhi_custom.api.discussion.fetch_channels",
+                callback: function (response) {
+                    const data = response.message;
+                    const channelList = document.querySelector("#channel-list");
+                    if (!channelList) {
+                        console.error("Channel list element not found.");
+                        return;
+                    }
+                    channelList.innerHTML = ""; // Clear existing content
+                    if (data && data.length > 0) {
+                        data.forEach(channel => {
+                            const anchor = document.createElement("a");
+                            anchor.className = "nav-items py-2 px-3 hover:bg-secondary cursor-pointer";
+                            anchor.style.textDecoration = "none";
+                            anchor.setAttribute("data-channel", channel.name);
+                            anchor.textContent = channel.channel_name;
+                            anchor.href = "#"; // Add href for navigation
+
+                            // Add click event listener
+                            anchor.addEventListener("click", (event) => {
+                                event.preventDefault(); // Prevent default behavior
+
+                                // Save the selected channel to local storage
+                                localStorage.setItem("activeChannel", channel.name);
+
+                                // Remove 'active' class from all channels
+                                const allChannels = channelList.querySelectorAll(".nav-items");
+                                allChannels.forEach(channelElement => {
+                                    channelElement.classList.remove("active");
+                                });
+
+                                // Add 'active' class to the clicked channel
+                                anchor.classList.add("active");
+
+                                // Load announcements for the selected channel
+                                loadAnnouncements(channel.name, 1, 3); // Pass limit=5
+                            });
+
+                            // Append the channel to the list
+                            channelList.appendChild(anchor);
+                        });
+
+                        // Restore the active channel from local storage
+                        const savedChannel = localStorage.getItem("activeChannel");
+                        if (savedChannel) {
+                            const activeChannelAnchor = document.querySelector(`[data-channel="${savedChannel}"]`);
+                            if (activeChannelAnchor) {
+                                activeChannelAnchor.classList.add("active");
+                                loadAnnouncements(savedChannel, 1, 3); // Load announcements for the saved channel
+                            }
+                        }
+                    } else {
+                        channelList.innerHTML = "<div>No channels found</div>";
+                    }
+                },
+                error: function (err) {
+                    console.error("Error fetching channels:", err);
+                    const channelList = document.querySelector("#channel-list");
+                    if (channelList) {
+                        channelList.innerHTML = "<div>Error loading channels.</div>";
+                    } else {
+                        console.error("Channel list element not found.");
+                    }
+                }
+            });
+        }
+
+        function loadAnnouncements(channelName, page = 1, limit) {
+            frappe.call({
+                method: "sarvadhi_custom.api.discussion.get_announcements",
+                args: { channel: channelName, page: page, limit: limit },
+                callback: function (response) {
+                    const data = response.message?.message; // Access the nested `message` property
+                    const totalCount = response.message?.total_count;
+                    const currentPage = response.message?.page;
+                    const pageSize = response.message?.limit;
+                    const postList = document.getElementById("post-list");
+                    if (!postList) {
+                        console.error("Post list element not found.");
+                        return;
+                    }
+                    postList.innerHTML = ""; // Clear existing content
+                    if (data && Array.isArray(data) && data.length > 0) {
+                        data.forEach(post => {
+                            const card = document.createElement("div");
+                            card.className = "card mb-3";
+                            card.style.maxHeight = "300px"; // Set initial height
+                            card.style.overflow = "hidden"; // Hide overflow content
+
+                            const cardBody = document.createElement("div");
+                            cardBody.className = "card-body";
+
+                            // Create the details container
+                            const metadataContainer = document.createElement("div");
+                            metadataContainer.className = "d-flex justify-content-between align-items-center";
+
+                            // Create the author element
+                            const details = document.createElement("p");
+                            details.innerHTML = `<small>Post sent by <strong>${post.created_by || "Unknown"}</strong></small>`;
+
+                            // Create the timestamp element
+                            const channelNameElement = document.createElement("p");
+                            channelNameElement.className = "text-end";
+                            channelNameElement.innerHTML = `<small>${new Date(post.creation).toLocaleString()}</small>`;
+
+                            // Append details and timestamp to the metadata container
+                            metadataContainer.appendChild(details);
+                            metadataContainer.appendChild(channelNameElement);
+
+                            // Create the title element
+                            const title = document.createElement("h5");
+                            title.textContent = post.announcement_name;
+
+                            // Create the description element
+                            const description = document.createElement("p");
+                            description.innerHTML = post.description || "No description available";
+
+                            // Add reactions container
+                            const reactionsContainer = document.createElement("div");
+                            reactionsContainer.className = "d-flex gap-2 mt-2";
+
+
+                            // Create the attachments container
+                            const attachmentsDiv = document.createElement("div");
+                            attachmentsDiv.className = "attachments-container mt-3"; // Add margin-top for spacing
+
+                            if (post.attachments && post.attachments.length > 0) {
+                                const attachmentTitle = document.createElement("p");
+                                attachmentTitle.innerHTML = "<strong>Attachments:</strong>";
+                                attachmentsDiv.appendChild(attachmentTitle);
+
+                                post.attachments.forEach(attachment => {
+                                    const attachmentLink = document.createElement("a");
+                                    attachmentLink.href = attachment.url; // Use the file URL
+                                    attachmentLink.target = "_blank"; // Open in a new tab
+                                    attachmentLink.className = "d-block text-primary mb-1"; // Add margin-bottom for spacing
+                                    attachmentLink.textContent = attachment.name; // Display file name
+                                    // Wrap the attachment link in a div
+                                    const attachmentWrapper = document.createElement("div");
+                                    attachmentWrapper.className = "attachment-wrapper"; // Optional class for styling
+                                    attachmentWrapper.appendChild(attachmentLink);
+
+                                    attachmentsDiv.appendChild(attachmentWrapper);
+                                });
+                            } else {
+                                attachmentsDiv.innerHTML = "<p>No attachments.</p>";
+                            }
+
+
+                            // Define available reactions
+                            const reactions = ["👍", "❤️", "😄", "🤔", "🥳", "😍"];
+                            const userId = frappe.session.user;
+                            const userReactions = post.reactions.filter(r => r.user === userId);
+                            reactions.forEach(reaction => {
+                                const reactionButton = document.createElement("button");
+                                reactionButton.className = `btn btn-sm btn-outline-secondary ${userReactions.some(r => r.reaction === reaction) ? "active" : ""}`;
+                                reactionButton.textContent = reaction;
+
+                                reactionButton.addEventListener("click", (event) => {
+                                    event.preventDefault();
+                                    const isActive = reactionButton.classList.contains("active");
+                                    if (isActive) {
+                                        reactionButton.classList.remove("active");
+                                    } else {
+                                        const allButtons = reactionsContainer.querySelectorAll("button");
+                                        allButtons.forEach(button => button.classList.remove("active"));
+                                        reactionButton.classList.add("active");
+                                    }
+                                    handleReaction(post.name, reaction);
+                                });
+
+                                reactionsContainer.appendChild(reactionButton);
+                            });
+
+                            // Append elements to the card body
+                            cardBody.appendChild(metadataContainer);
+                            cardBody.appendChild(title);
+                            cardBody.appendChild(description);
+                            cardBody.appendChild(reactionsContainer);
+                            cardBody.appendChild(attachmentsDiv); // Append the attachments div
+
+                            // Append the card body to the card
+                            card.appendChild(cardBody);
+
+                            // Add "See More" button if content exceeds height
+                            const seeMoreButton = document.createElement("button");
+                            seeMoreButton.className = "btn btn-sm btn-primary mt-2 w-100";
+                            seeMoreButton.textContent = "See More";
+                            seeMoreButton.style.display = "none"; // Initially hidden
+
+                            // Ensure all content is loaded before checking scrollHeight
+                            function checkScrollHeight() {
+                                if (card.scrollHeight > 300) { // Check if content exceeds 500px
+                                    seeMoreButton.style.display = "block"; // Show "See More" button
+                                }
+                            }
+
+                            // Use requestAnimationFrame to ensure accurate height calculation
+                            requestAnimationFrame(() => {
+                                checkScrollHeight();
+
+                                // Additional check for dynamically loaded content (e.g., images)
+                                const images = card.querySelectorAll("img");
+                                if (images.length > 0) {
+                                    images.forEach(img => {
+                                        img.onload = () => {
+                                            requestAnimationFrame(checkScrollHeight);
+                                        };
+                                    });
+                                }
+                            });
+
+                            // Add click event to "See More" button
+                            seeMoreButton.addEventListener("click", () => {
+                                card.style.maxHeight = "none"; // Remove height restriction
+                                seeMoreButton.style.display = "none"; // Hide "See More" button
+                            });
+
+                            card.appendChild(seeMoreButton);
+
+                            // Append the card to the post list
+                            postList.appendChild(card);
+                        });
+                    } else {
+                        postList.innerHTML = "<p>No announcements in this channel.</p>";
+                    }
+
+                    // Render pagination controls
+                    renderPagination(totalCount, currentPage, pageSize, channelName);
+                },
+                error: function (err) {
+                    console.error("Error fetching announcements:", err);
+                    const postList = document.getElementById("post-list");
+                    if (postList) {
+                        postList.innerHTML = "<div>Error loading announcements.</div>";
+                    } else {
+                        console.error("Post list element not found.");
+                    }
+                }
+            });
+        }
+        function handleReaction(postId, reaction) {
+
+            // Find the current user's ID (assuming it's stored in the session)
+            const userId = frappe.session.user;
+
+            frappe.call({
+                method: "sarvadhi_custom.api.discussion.update_reaction",
+                args: {
+                    post_id: postId,
+                    emoji: reaction
+                },
+                callback: function (response) {
+                    console.log("Reaction toggled:", response.message);
+                },
+                error: function (err) {
+                    console.error("Error toggling reaction:", err);
+                    alert("Failed to toggle reaction. Please try again.");
+                }
+            });
+        }
+
+        // Function to render pagination controls
+        function renderPagination(totalCount, currentPage, pageSize, channelName) {
+            const totalPages = Math.ceil(totalCount / pageSize);
+            const paginationControls = document.getElementById("pagination-controls");
+
+            if (!paginationControls) {
+                console.error("Pagination controls element not found.");
+                return;
+            }
+
+            paginationControls.innerHTML = ""; // Clear existing pagination controls
+
+            // Always show pagination controls, even if there's only one page
+            paginationControls.style.display = "flex";
+
+            // Previous button
+            const prevButton = document.createElement("button");
+            prevButton.className = "btn btn-outline-secondary me-2";
+            prevButton.textContent = "Previous";
+            prevButton.disabled = currentPage === 1; // Disable if on the first page
+            prevButton.addEventListener("click", () => {
+                loadAnnouncements(channelName, currentPage - 1, pageSize);
+            });
+            paginationControls.appendChild(prevButton);
+
+            // Page numbers
+            for (let i = 1; i <= totalPages; i++) {
+                const pageButton = document.createElement("button");
+                pageButton.className = `btn btn-outline-secondary ${i === currentPage ? "active" : ""}`;
+                pageButton.textContent = i;
+                pageButton.addEventListener("click", () => {
+                    loadAnnouncements(channelName, i, pageSize);
+                });
+                paginationControls.appendChild(pageButton);
+            }
+
+            // Next button
+            const nextButton = document.createElement("button");
+            nextButton.className = "btn btn-outline-secondary ms-2";
+            nextButton.textContent = "Next";
+            nextButton.disabled = currentPage === totalPages; // Disable if on the last page
+            nextButton.addEventListener("click", () => {
+                loadAnnouncements(channelName, currentPage + 1, pageSize);
+            });
+            paginationControls.appendChild(nextButton);
+        }
+
+        // Fetch channels when the page loads
+        document.addEventListener("DOMContentLoaded", function () {
+            fetchChannels();
+        });
+    </script>
+    {% endblock %}
+
+    {% block style %}
+    <style>
+        /* Main Container Styling */
+        #main-container {
+            height: 1000px;
+            scroll-behavior: smooth;
+            position: relative;
+            /* Ensure children can use sticky positioning */
+            max-height: calc(100vh - 150px);
+            /* Adjust height based on viewport height */
+            overflow-y: auto;
+            /* Enable vertical scrolling */
+            padding: 1rem;
+            /* Add padding for spacing */
+            background-color: #f8f9fa;
+            /* Light background color for contrast */
+            border-radius: 0.5rem;
+            /* Rounded corners for a softer look */
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            /* Subtle shadow for depth */
+        }
+
+        /* Sticky Pagination Controls */
+        #pagination-controls {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 0.5rem;
+            /* Space between buttons */
+            margin-top: 1.5rem;
+            /* Space above pagination controls */
+
+            /* Sticky Behavior */
+            position: sticky;
+            bottom: 10px;
+            /* Slightly above the bottom of the viewport */
+            background-color: white;
+            /* Ensure visibility */
+            padding: 1rem 0;
+            /* Padding for better spacing */
+            border-top: 1px solid #dee2e6;
+            /* Separator line */
+            z-index: 1000;
+            /* Ensure it stays above other content */
+            box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.1);
+            /* Shadow for depth */
+            border-radius: 0.5rem;
+            /* Rounded corners */
+
+        }
+
+        /* Post List Styling */
+        #post-list {
+            margin-bottom: 2rem;
+            /* Add space below the post list */
+        }
+
+        #post-list .card {
+            border: none;
+            /* Remove default card border */
+            border-radius: 0.5rem;
+            /* Rounded corners */
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            /* Subtle shadow for depth */
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            /* Smooth hover effects */
+        }
+
+        #post-list .card:hover {
+            transform: translateY(-5px);
+            /* Lift the card slightly on hover */
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+            /* Increase shadow for emphasis */
+        }
+
+        #post-list .card-body {
+            padding: 1.5rem;
+            /* Add more padding inside the card */
+        }
+
+        /* Sidebar Enhancements */
+        .sidebar {
+            background-color: #2c3e50;
+            /* Darker background for contrast */
+            color: white;
+            /* White text */
+            border-right: 1px solid #34495e;
+            /* Subtle border for separation */
+            transition: background-color 0.3s ease;
+            /* Smooth hover effect */
+        }
+
+        .sidebar:hover {
+            background-color: #34495e;
+            /* Slightly lighter background on hover */
+            margin-bottom: 1rem;
+            /* Add space below the heading */
+
+        }
+
+        .sidebar h5 {
+            font-weight: bold;
+            /* Bold heading */
+            margin-bottom: 1rem;
+            /* Add space below the heading */
+        }
+
+        .nav-items {
+            display: block;
+            /* Ensure links stack vertically */
+            text-decoration: none;
+            /* Remove underline */
+            color: white;
+            /* White text */
+            padding: 0.75rem 1rem;
+            /* Add padding for better touch targets */
+            border-radius: 0.25rem;
+            /* Rounded corners */
+            transition: background-color 0.3s ease, color 0.3s ease;
+            /* Smooth hover effects */
+            margin-bottom: 0.25rem;
+            /* Add bottom margin to separate channels */
+
+        }
+
+        .nav-items:hover {
+            background-color: #9d9d9d;
+            /* Highlight background on hover */
+            color: #ffffff;
+            /* Brighten text on hover */
+        }
+
+        .nav-items.active {
+            font-weight: bold;
+            /* Make active item bold */
+            background-color: #9d9d9d;
+            /* Highlight active item */
+            color: white;
+            /* White text */
+            margin-bottom: 0.25rem;
+            /* Ensure consistent spacing */
+            border-radius: 0.25rem;
+            /* Maintain rounded corners */
+        }
+
+        /* See More Button Styling */
+        /* Ensure cards have smooth transitions */
+        /* Ensure cards have smooth transitions */
+        /* Ensure cards have smooth transitions */
+        /* Ensure cards have smooth transitions */
+        .card {
+            transition: max-height 0.3s ease-in-out;
+        }
+
+        /* Prevent content from overflowing */
+        .card {
+            overflow: hidden;
+            /* Hide overflow content */
+        }
+
+        /* Ensure "See More" button is positioned correctly */
+        .card .btn-primary {
+            position: relative;
+            /* Ensure proper positioning */
+            z-index: 1;
+            /* Ensure the button stays above other content */
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+
+            /* Adjust sidebar and main content for smaller screens */
+            .sidebar {
+                min-height: auto;
+                /* Allow sidebar to shrink */
+                padding: 1rem;
+                /* Reduce padding */
+            }
+
+            .main-content {
+                padding: 1rem;
+                /* Reduce padding */
+            }
+
+
+        }
+
+
+        /* Attachments container */
+        .attachments-container {
+            margin-top: 1rem;
+            /* Space above the attachments */
+            border-top: 1px solid #dee2e6;
+            /* Separator line */
+            padding-top: 0.5rem;
+            /* Padding inside the container */
+        }
+
+        /* Attachments heading */
+        .attachments-container strong {
+            font-size: 1rem;
+            /* Slightly larger font size */
+            color: #6c757d;
+            /* Muted text color */
+        }
+
+        /* Attachment wrapper */
+        .attachment-wrapper {
+            margin-bottom: 0.5rem;
+            /* Vertical spacing between attachments */
+            border: #6c757D 1px solid;
+            /* Border around each attachment */
+            border-radius: 0.25rem;
+            /* Rounded corners */
+            display: inline-flex;
+            margin: 5px;
+            background-color: #edf0f2;
+            padding: 5px;
+        }
+
+        /* Hover effect for attachment links */
+        .attachments-container a:hover {
+            text-decoration: underline;
+            /* Underline on hover */
+        }
+
+        /* No attachments message */
+        .attachments-container p:last-child {
+            font-style: italic;
+            color: #6c757d;
+            /* Muted text color */
+        }
+    </style>
+    {% endblock %}

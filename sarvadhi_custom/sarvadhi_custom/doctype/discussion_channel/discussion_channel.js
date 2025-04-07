@@ -14,7 +14,7 @@ frappe.ui.form.on("Discussion Channel", {
 
         if (selected_roles.length > 0) {
             frappe.call({
-                method: "sarvadhi_custom.api.channel_api.get_users_by_role",
+                method: "sarvadhi_custom.api.discussion.get_users_by_role",
                 args: { roles: selected_roles },  // Pass array of roles
                 callback: function(response) {
                     if (response.message) {

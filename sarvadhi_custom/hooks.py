@@ -4,12 +4,20 @@ app_publisher = "sarvadhi"
 app_description = "custom"
 app_email = "sarvadhi@gmail.com"
 app_license = "mit"
-
+app_include_js = [
+    "/assets/sarvadhi_custom/js/custom.js"
+]
+whitelisted = [
+    "sarvadhi_custom.api.base.get_user_channels"
+]
+override_whitelisted_methods = {
+    "sarvadhi_custom.api.discussion.get_announcements": "sarvadhi_custom.api.discussion.get_announcements"
+}
 doc_events={
 
 
     "Sarvadhi Announcements": {
-        "before_save": "sarvadhi_custom.api.reactions.set_created_by"
+        "before_save": "sarvadhi_custom.api.discussion.set_created_by"
     },
 
 }
